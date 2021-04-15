@@ -37,13 +37,12 @@ GLFWwindow* window; // Main application window
 string RESOURCE_DIR = "./"; // Where the resources are loaded from
 bool OFFLINE = false;
 shared_ptr<double> t;
-//int width = 640 * 3, height = 480 * 3; // viewport width, height
 
 shared_ptr<Camera> camera;
-shared_ptr<Program> prog, revProg, pass2Prog;
+shared_ptr<Program> prog, revProg, pass2Prog, splitProg;
 shared_ptr<MatrixStack> MV;
 shared_ptr<MatrixStack> P;
-shared_ptr<Shape> bunny, teapot, sphere, ground_mesh, arrow, rev, screen;
+shared_ptr<Shape> bunny, teapot, sphere, ground_mesh, rev, screen;
 shared_ptr<Object> ground;
 
 vector<shared_ptr<Object>> bunnies; // contains all objects to be drawn
@@ -56,6 +55,7 @@ glm::vec3* lightPos;
 glm::vec3* lightColors;
 
 // textures
+int activeTex = 0;
 int textureWidth = 640 * 3;
 int textureHeight = 480 * 3;
 GLuint framebufferID;
@@ -87,6 +87,21 @@ static void cursor_position_callback(GLFWwindow* window, double xmouse, double y
 static void char_callback(GLFWwindow* window, unsigned int key) {
 	keyToggles[key] = !keyToggles[key];
 	switch (key) {
+	case '0':
+		activeTex = 0;
+		break;
+	case '1':
+		activeTex = 1;
+		break;
+	case '2':
+		activeTex = 2;
+		break;
+	case '3':
+		activeTex = 3;
+		break;
+	case '4':
+		activeTex = 4;
+		break;
 	case 'w':
 		camera->w();
 		break;
@@ -119,6 +134,21 @@ static void char_callback(GLFWwindow* window, unsigned int key) {
 // If the window is resized, capture the new size and reset the viewport
 static void resize_callback(GLFWwindow* window, int width, int height) {
 	glViewport(0, 0, width, height);
+	textureWidth = width;
+	textureHeight = height;
+
+	glBindTexture(GL_TEXTURE_2D, posTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glBindTexture(GL_TEXTURE_2D, norTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glBindTexture(GL_TEXTURE_2D, kaTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glBindTexture(GL_TEXTURE_2D, kdTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, textureWidth, textureHeight, 0, GL_RGB, GL_FLOAT, NULL);
+
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, textureWidth, textureHeight);
+
+	
 }
 
 // https://lencerf.github.io/post/2019-09-21-save-the-opengl-rendering-to-image-file/
@@ -170,12 +200,7 @@ static void init() {
 	prog->addUniform("P");
 	prog->addUniform("ka");
 	prog->addUniform("kd");
-	//prog->addUniform("ks");
-	//prog->addUniform("s");
-	//prog->addUniform("lightPos");
-	//prog->addUniform("lightColors");
 	prog->setVerbose(false);
-	/*
 	// surface of revolution program (1st pass)
 	revProg = make_shared<Program>();
 	revProg->setShaderNames(RESOURCE_DIR + "rev_vert.glsl", RESOURCE_DIR + "Pass1_frag.glsl");
@@ -187,13 +212,8 @@ static void init() {
 	revProg->addUniform("P");
 	revProg->addUniform("ka");
 	revProg->addUniform("kd");
-	revProg->addUniform("ks");
-	revProg->addUniform("s");
 	revProg->addUniform("t");
-	revProg->addUniform("lightPos");
-	revProg->addUniform("lightColors");
-	//revProg->setVerbose(false);
-	*/
+	revProg->setVerbose(false);
 	// second pass program
 	pass2Prog = make_shared<Program>();
 	pass2Prog->setShaderNames(RESOURCE_DIR + "Pass2_vert.glsl", RESOURCE_DIR + "Pass2_frag.glsl");
@@ -208,14 +228,37 @@ static void init() {
 	pass2Prog->addUniform("norTexture");
 	pass2Prog->addUniform("kaTexture");
 	pass2Prog->addUniform("kdTexture");
+	pass2Prog->addUniform("lightPos");
+	pass2Prog->addUniform("lightColors");
 	pass2Prog->bind();
 	glUniform1i(pass2Prog->getUniform("posTexture"), 0);
 	glUniform1i(pass2Prog->getUniform("norTexture"), 1);
 	glUniform1i(pass2Prog->getUniform("kaTexture"), 2);
 	glUniform1i(pass2Prog->getUniform("kdTexture"), 3);
 	pass2Prog->unbind();
-
 	pass2Prog->setVerbose(false);
+	// split rendering program
+	splitProg = make_shared<Program>();
+	splitProg->setShaderNames(RESOURCE_DIR + "Pass2_vert.glsl", RESOURCE_DIR + "split_frag.glsl");
+	splitProg->setVerbose(true);
+	splitProg->init();
+	splitProg->addAttribute("aPos");
+	splitProg->addUniform("MV");
+	splitProg->addUniform("P");
+	splitProg->addUniform("windowSize");
+
+	splitProg->addUniform("posTexture");
+	splitProg->addUniform("norTexture");
+	splitProg->addUniform("kaTexture");
+	splitProg->addUniform("kdTexture");
+	splitProg->addUniform("activeTex");
+	splitProg->bind();
+	glUniform1i(splitProg->getUniform("posTexture"), 0);
+	glUniform1i(splitProg->getUniform("norTexture"), 1);
+	glUniform1i(splitProg->getUniform("kaTexture"), 2);
+	glUniform1i(splitProg->getUniform("kdTexture"), 3);
+	splitProg->unbind();
+	splitProg->setVerbose(false);
 	///////////////////
 	// Create shapes //
 	///////////////////
@@ -243,10 +286,6 @@ static void init() {
 	screen = make_shared<Shape>();
 	screen->loadPlane();
 	screen->init();
-	arrow = make_shared<Shape>();
-	arrow->loadMesh(RESOURCE_DIR + "arrow.obj");
-	arrow->init();
-
 
 	///////////////////////////
 	// Create render buffers //
@@ -279,7 +318,7 @@ static void init() {
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, kaTexture, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, kaTexture, 0);
 	// kd buffer
 	glGenTextures(1, &kdTexture);
 	glBindTexture(GL_TEXTURE_2D, kdTexture);
@@ -375,10 +414,10 @@ static void render() {
 	glBindTexture(GL_TEXTURE_2D, norTexture);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, kaTexture);
-	glActiveTexture(GL_TEXTURE2);
+	glActiveTexture(GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_2D, kdTexture);
 
-	screen->draw(pass2Prog);
+	//screen->draw(pass2Prog);
 	glActiveTexture(GL_TEXTURE0);
 
 
@@ -404,39 +443,29 @@ static void render() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	prog->bind();
-	// set variables
+	glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
 	// refresh posCam to keep in camera space
 	for (int i = 0; i < nLights; i++) {
 		lights.at(i)->refreshPosCam();
 	}
-	glUniform3fv(prog->getUniform("lightPos"), nLights, glm::value_ptr(*lightPos));
-	glUniform3fv(prog->getUniform("lightColors"), nLights, glm::value_ptr(*lightColors));
-	glUniformMatrix4fv(prog->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
-
 	// Draw every object
 	for (int i = 0; i < bunnies.size(); i++) {
 		bunnies.at(i)->draw(prog);
 	}
-	for (int i = 0; i < nLights; i++) {
+	for (int i = 0; i < lights.size(); i++) {
 		lights.at(i)->draw(prog);
 	}
 	ground->draw(prog);
 	prog->unbind();
 
 	// draw surfaces of revolution
-	/*
 	revProg->bind();
-	// set variables
-	glUniform3fv(revProg->getUniform("lightPos"), nLights, glm::value_ptr(*lightPos));
-	glUniform3fv(revProg->getUniform("lightColors"), nLights, glm::value_ptr(*lightColors));
 	glUniformMatrix4fv(revProg->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
-
 	// Draw every rev
 	for (int i = 0; i < revs.size(); i++) {
 		revs.at(i)->draw(revProg);
 	}
 	revProg->unbind();
-	*/
 
 	MV->popMatrix();
 	P->popMatrix();
@@ -444,25 +473,31 @@ static void render() {
 	////////////////////////
 	// Second pass render //
 	////////////////////////
+	auto activeProg = pass2Prog;
+	if (activeTex != 0)
+		activeProg = splitProg;
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	// Get current frame buffer size.
 	glViewport(0, 0, width, height);
-	pass2Prog->bind();
+	activeProg->bind();
 	// Apply camera transforms
 	P->pushMatrix();
 	P->multMatrix(glm::ortho(-0.5, 0.5, -0.5, 0.5, 1.0, 10.0));
-	//camera->applyProjectionMatrix(P);
 	MV->pushMatrix();
-	//MV->rotate((float)glm::radians(90.0), 1, 0, 0);
 	MV->translate(0.0f, 0.0f, -5.0f);
-	//camera->applyViewMatrix(MV);
-	glUniformMatrix4fv(pass2Prog->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
-	glUniformMatrix4fv(pass2Prog->getUniform("MV"), 1, GL_FALSE, glm::value_ptr(MV->topMatrix()));
-	glUniform2f(pass2Prog->getUniform("windowSize"), (float)width, (float)height);
-	screen->draw(pass2Prog);
+	glUniformMatrix4fv(activeProg->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
+	glUniformMatrix4fv(activeProg->getUniform("MV"), 1, GL_FALSE, glm::value_ptr(MV->topMatrix()));
+	glUniform2f(activeProg->getUniform("windowSize"), (float)width, (float)height);
+	if (activeTex == 0) {
+		glUniform3fv(activeProg->getUniform("lightPos"), nLights, glm::value_ptr(*lightPos));
+		glUniform3fv(activeProg->getUniform("lightColors"), nLights, glm::value_ptr(*lightColors));
+	} else {
+		glUniform1i(activeProg->getUniform("activeTex"), activeTex);
+	}
+	screen->draw(activeProg);
 	glActiveTexture(GL_TEXTURE0);
 
-	pass2Prog->unbind();
+	activeProg->unbind();
 	P->popMatrix();
 	MV->popMatrix();
 
@@ -484,9 +519,16 @@ int main(int argc, char** argv) {
 	}
 	RESOURCE_DIR = argv[1] + string("/");
 
-	// Optional argument
+	// Optional argument: offline rendering
 	if (argc >= 3) {
 		OFFLINE = atoi(argv[2]) != 0;
+	}
+
+	// optional argument: active texture
+	if (argc >= 4) {
+		activeTex = atoi(argv[3]);
+		if (activeTex < 0) activeTex = 0;
+		else if (activeTex > 4) activeTex = 4;
 	}
 
 	// Set error callback.

@@ -22,12 +22,6 @@ float Object::pickColor() {
 
 
 void Object::draw(const shared_ptr<Program> prog) {
-    // Set shader values
-    glUniform3f(prog->getUniform("ka"), mat.ka.x, mat.ka.y, mat.ka.z);
-    glUniform3f(prog->getUniform("kd"), mat.kd.x, mat.kd.y, mat.kd.z);
-    glUniform3f(prog->getUniform("ks"), mat.ks.x, mat.ks.y, mat.ks.z);
-    glUniform1f(prog->getUniform("s"), mat.s);
-
     // Apply model transforms
     MV->pushMatrix();
     MV->translate(pos);
@@ -44,6 +38,10 @@ void Object::draw(const shared_ptr<Program> prog) {
 }
 
 void Object::sendGPU(const shared_ptr<Program> prog) {
+    // Set shader values
+    glUniform3f(prog->getUniform("ka"), mat.ka.x, mat.ka.y, mat.ka.z);
+    glUniform3f(prog->getUniform("kd"), mat.kd.x, mat.kd.y, mat.kd.z);
+    // Draw
     glUniformMatrix4fv(prog->getUniform("MV"), 1, GL_FALSE, glm::value_ptr(MV->topMatrix()));
     glm::mat4 it = glm::transpose(glm::inverse(MV->topMatrix()));
     glUniformMatrix4fv(prog->getUniform("IT"), 1, GL_FALSE, glm::value_ptr(it));

@@ -229,12 +229,12 @@ void Shape::loadRev() {
 			glm::vec4 square = { c + nCols * r, (c + 1) + nCols * r, c + nCols * (r + 1), (c + 1) + nCols * (r + 1) };
 			// triangle 1
 			indBuf.push_back((int)square.x);
-			indBuf.push_back((int)square.y);
 			indBuf.push_back((int)square.w);
+			indBuf.push_back((int)square.y);
 			// triangle 2
 			indBuf.push_back((int)square.x);
-			indBuf.push_back((int)square.w);
 			indBuf.push_back((int)square.z);
+			indBuf.push_back((int)square.w);
 		}
 	}
 	// fill array version of buffers

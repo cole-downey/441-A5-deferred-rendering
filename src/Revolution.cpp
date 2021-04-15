@@ -10,19 +10,12 @@ Revolution::Revolution(glm::vec3 _pos, glm::vec3 _posOffset, std::shared_ptr<Sha
 }
 
 void Revolution::draw(const shared_ptr<Program> prog) {
-    // Set shader values
-    glUniform3f(prog->getUniform("ka"), mat.ka.x, mat.ka.y, mat.ka.z);
-    glUniform3f(prog->getUniform("kd"), mat.kd.x, mat.kd.y, mat.kd.z);
-    glUniform3f(prog->getUniform("ks"), mat.ks.x, mat.ks.y, mat.ks.z);
-    glUniform1f(prog->getUniform("s"), mat.s);
-
     // Apply model transforms
     MV->pushMatrix();
     MV->translate(pos);
     MV->scale(scale);
     MV->translate(posOffset); // make correct height
     MV->rotate(rot, 0, 0, 1);
-
     // Draw
     if (t == nullptr)
         glUniform1f(prog->getUniform("t"), 0.0f + (float)tOffset);

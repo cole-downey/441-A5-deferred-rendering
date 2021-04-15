@@ -17,7 +17,7 @@ void main()
 	float fx = cos(x + t) + 2;
 	vec4 pos = vec4(x / 10, fx * cos(theta) / 10, fx * sin(theta) / 10, 1.0);
 	float dfx = -sin(x + t);
-	vec3 norm = cross(vec3(1.0f, dfx * cos(theta), dfx * sin(theta)), 
+	vec3 norm = -cross(vec3(1.0f, dfx * cos(theta), dfx * sin(theta)), 
 		vec3(0.0f, -fx * sin(theta), fx * cos(theta)));
 	norm = normalize(norm);
 

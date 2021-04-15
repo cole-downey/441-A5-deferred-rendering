@@ -8,7 +8,7 @@
 
 
 Camera::Camera() :
-	pos(0.0f, 1.0f, 0.0f),
+	pos(0.0f, 0.75f, 0.0f),
 	yaw(0.0f),
 	pitch(0.0f),
 	forward(0.0f, 0.0f, 1.0f),
