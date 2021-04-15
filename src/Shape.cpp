@@ -69,6 +69,64 @@ void Shape::loadMesh(const string& meshName) {
 	}
 }
 
+void Shape::loadPlane() {
+	vector<float> iposBuf; // temporary indexed version of posBuf
+	vector<float> inorBuf;
+	vector<float> itexBuf;
+	vector<unsigned int> indBuf;
+	int nRows = 10, nCols = 10;
+	glm::vec3 gridMax = glm::vec3(0.5f, 0.5f, 0.0f);
+	glm::vec3 gridMin = glm::vec3(-0.5f, -0.5f, 0.0f);
+	glm::vec3 gridSize = gridMax - gridMin;
+	gridSize.x /= (nRows - 1);
+	gridSize.y /= (nCols - 1);
+	glm::vec2 texSize = { 1.0f, 1.0f };
+	texSize.x /= (nRows - 1);
+	texSize.y /= (nCols - 1);
+	for (int r = 0; r < nRows; r++) {
+		for (int c = 0; c < nCols; c++) {
+			// position
+			iposBuf.push_back(r * gridSize.x + gridMin.x);
+			iposBuf.push_back(c * gridSize.y + gridMin.y);
+			iposBuf.push_back(0.0f);
+			// normal
+			inorBuf.push_back(0.0f);
+			inorBuf.push_back(0.0f);
+			inorBuf.push_back(1.0f);
+			// texture
+			itexBuf.push_back(r * texSize.x);
+			itexBuf.push_back(c * texSize.y);
+		}
+	}
+	for (int r = 0; r < nRows - 1; r++) {
+		for (int c = 0; c < nCols - 1; c++) {
+			// for each square { a, b, c, d}
+			// push (a), push (d), push (b)
+			// push (a), push (c), push (d)
+			glm::vec4 square = { c + nCols * r, (c + 1) + nCols * r, c + nCols * (r + 1), (c + 1) + nCols * (r + 1) };
+			// triangle 1
+			indBuf.push_back((int)square.x);
+			indBuf.push_back((int)square.w);
+			indBuf.push_back((int)square.y);
+			// triangle 2
+			indBuf.push_back((int)square.x);
+			indBuf.push_back((int)square.z);
+			indBuf.push_back((int)square.w);
+		}
+	}
+	// fill array version of buffers
+	for (int v = 0; v < indBuf.size(); v++) {
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3));
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 1));
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 2));
+		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3));
+		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3 + 1));
+		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3 + 2));
+		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2));
+		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2 + 1));
+	}
+}
+
 void Shape::loadSphere() {
 	// procedurally create sphere instead of obj
 	// ideally we would use indexed drawing in draw, but for this, I am just going to convert to array drawing after creating sphere
@@ -128,65 +186,65 @@ void Shape::loadSphere() {
 		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3));
 		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3 + 1));
 		norBuf.push_back(inorBuf.at(indBuf.at(v) * 3 + 2));
-		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2 ));
+		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2));
 		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2 + 1));
 	}
 }
 
 void Shape::loadRev() {
-    // procedurally create surface of revolution, to be computed on gpu
-    // ideally we would use indexed drawing in draw, but for this, I am just going to convert to array drawing after creating sphere
-    vector<float> iposBuf; // temporary indexed version of posBuf
-    vector<float> itexBuf;
-    vector<unsigned int> indBuf;
-    int nRows = 50, nCols = 50;
+	// procedurally create surface of revolution, to be computed on gpu
+	// ideally we would use indexed drawing in draw, but for this, I am just going to convert to array drawing after creating sphere
+	vector<float> iposBuf; // temporary indexed version of posBuf
+	vector<float> itexBuf;
+	vector<unsigned int> indBuf;
+	int nRows = 50, nCols = 50;
 	float pi = 3.14159265358979323846f;
-    glm::vec2 revBounds = { 10.0f, pi * 2 }; // {x, theta}
+	glm::vec2 revBounds = { 10.0f, pi * 2 }; // {x, theta}
 
-    revBounds.x /= (nRows - 1);
-    revBounds.y /= (nCols - 1);
-    glm::vec2 texSize = { 10.0f, 10.0f };
-    texSize.x /= (nRows - 1);
-    texSize.y /= (nCols - 1);
-    // for x = 0 -> 10, nRows
-    for (int r = 0; r < nRows; r++) {
-        // for theta = 0 -> 2 pi, nCols
-        for (int c = 0; c < nCols; c++) {
-            // position
-            float x = r * revBounds.x;
-            float theta = c * revBounds.y;
-            iposBuf.push_back(x);
-            iposBuf.push_back(theta);
-            iposBuf.push_back(0.0f);
-            // texture
-            itexBuf.push_back(c * texSize.y);
-            itexBuf.push_back(r * texSize.x); // flip y coord for texture
-        }
-    }
-    for (int r = 0; r < nRows - 1; r++) {
-        for (int c = 0; c < nCols - 1; c++) {
-            // for each square { a, b, c, d}
-            // push (a), push (d), push (b)
-            // push (a), push (c), push (d)
-            glm::vec4 square = { c + nCols * r, (c + 1) + nCols * r, c + nCols * (r + 1), (c + 1) + nCols * (r + 1) };
-            // triangle 1
-            indBuf.push_back((int)square.x);
-            indBuf.push_back((int)square.y);
-            indBuf.push_back((int)square.w);
-            // triangle 2
-            indBuf.push_back((int)square.x);
-            indBuf.push_back((int)square.w);
-            indBuf.push_back((int)square.z);
-        }
-    }
-    // fill array version of buffers
-    for (int v = 0; v < indBuf.size(); v++) {
-        posBuf.push_back(iposBuf.at(indBuf.at(v) * 3));
-        posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 1));
-        posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 2));
-        texBuf.push_back(itexBuf.at(indBuf.at(v) * 2));
-        texBuf.push_back(itexBuf.at(indBuf.at(v) * 2 + 1));
-    }
+	revBounds.x /= (nRows - 1);
+	revBounds.y /= (nCols - 1);
+	glm::vec2 texSize = { 10.0f, 10.0f };
+	texSize.x /= (nRows - 1);
+	texSize.y /= (nCols - 1);
+	// for x = 0 -> 10, nRows
+	for (int r = 0; r < nRows; r++) {
+		// for theta = 0 -> 2 pi, nCols
+		for (int c = 0; c < nCols; c++) {
+			// position
+			float x = r * revBounds.x;
+			float theta = c * revBounds.y;
+			iposBuf.push_back(x);
+			iposBuf.push_back(theta);
+			iposBuf.push_back(0.0f);
+			// texture
+			itexBuf.push_back(c * texSize.y);
+			itexBuf.push_back(r * texSize.x); // flip y coord for texture
+		}
+	}
+	for (int r = 0; r < nRows - 1; r++) {
+		for (int c = 0; c < nCols - 1; c++) {
+			// for each square { a, b, c, d}
+			// push (a), push (d), push (b)
+			// push (a), push (c), push (d)
+			glm::vec4 square = { c + nCols * r, (c + 1) + nCols * r, c + nCols * (r + 1), (c + 1) + nCols * (r + 1) };
+			// triangle 1
+			indBuf.push_back((int)square.x);
+			indBuf.push_back((int)square.y);
+			indBuf.push_back((int)square.w);
+			// triangle 2
+			indBuf.push_back((int)square.x);
+			indBuf.push_back((int)square.w);
+			indBuf.push_back((int)square.z);
+		}
+	}
+	// fill array version of buffers
+	for (int v = 0; v < indBuf.size(); v++) {
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3));
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 1));
+		posBuf.push_back(iposBuf.at(indBuf.at(v) * 3 + 2));
+		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2));
+		texBuf.push_back(itexBuf.at(indBuf.at(v) * 2 + 1));
+	}
 }
 
 
