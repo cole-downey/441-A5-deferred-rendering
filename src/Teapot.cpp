@@ -7,12 +7,6 @@ Teapot::Teapot(glm::vec3 _pos, glm::vec3 _posOffset, std::shared_ptr<Shape> _sha
 }
 
 void Teapot::draw(const shared_ptr<Program> prog) {
-    // Set shader values
-    glUniform3f(prog->getUniform("ka"), mat.ka.x, mat.ka.y, mat.ka.z);
-    glUniform3f(prog->getUniform("kd"), mat.kd.x, mat.kd.y, mat.kd.z);
-    glUniform3f(prog->getUniform("ks"), mat.ks.x, mat.ks.y, mat.ks.z);
-    glUniform1f(prog->getUniform("s"), mat.s);
-
     // Apply model transforms
     MV->pushMatrix();
     MV->translate(pos);

@@ -21,6 +21,7 @@ public:
 	Shape();
 	virtual ~Shape();
 	void loadMesh(const std::string &meshName);
+	void loadPlane();
 	void loadSphere();
 	void loadRev();
 	void fitToUnitBox();
